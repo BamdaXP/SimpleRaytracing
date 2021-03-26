@@ -1,0 +1,7 @@
+#Visual studio
+/.vs
+/.vscode
+*.sln
+
+#Output binaries and intermediums
+/out
