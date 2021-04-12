@@ -5,6 +5,7 @@ class Camera
 public:
 	glm::vec3 Position;
 	glm::vec3 Direction;
-
-	Camera(glm::vec3 p, glm::vec3 d);
+	float HWRatio;
+	float FovInRad;
+	Camera(glm::vec3 pos, glm::vec3 dir, float ratio, float fov);
 };

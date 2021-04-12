@@ -1,6 +1,6 @@
 #include "Camera.hpp"
 
-Camera::Camera(glm::vec3 p, glm::vec3 d) 
-	:Position(p), Direction(glm::normalize(d)) 
+Camera::Camera(glm::vec3 pos, glm::vec3 dir, float ratio, float fov)
+	:Position(pos), Direction(glm::normalize(dir)),HWRatio(ratio),FovInRad(fov)
 {
 }

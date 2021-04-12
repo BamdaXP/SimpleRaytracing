@@ -4,7 +4,8 @@
 
 #include <iostream>
 #include <fstream>
-
+#include <thread> 
+#include <atomic>
 void Renderer::Render(const Camera& camera, const std::vector<Object>& scene)
 {
 	//Copy the scene into the renderer
@@ -16,8 +17,10 @@ void Renderer::Render(const Camera& camera, const std::vector<Object>& scene)
 	uint16_t width = m_Description.Width;
 	uint16_t height = m_Description.Height;
 	//Camera info
-	glm::vec3 camera_x = { width * 0.5135f / height ,0,0 };
-	glm::vec3 camera_y = glm::normalize(glm::cross(camera_x, camera.Direction)) * 0.5135f;
+	glm::vec3 camera_x = { width * camera.HWRatio / height ,0,0 };
+	glm::vec3 camera_y = glm::normalize(glm::cross(camera_x, camera.Direction)) * camera.HWRatio;
+	glm::vec3 focusPoint = camera.Position - camera.Direction * glm::length(camera_x / glm::tan(camera.FovInRad));
+
 	glm::vec3 radiance;
 
 	std::cout << "Rendering" << std::endl
@@ -36,15 +39,20 @@ void Renderer::Render(const Camera& camera, const std::vector<Object>& scene)
 			int i = (height - y - 1) * width + x;
 			for (uint16_t subpixel = 0; subpixel < m_Description.SubPixels; subpixel++)
 			{
-				radiance = { 0.0f,0.0f,0.0f };
-				for (uint32_t sample = 0; sample < m_Description.SamplesPerPixel; sample++)
-				{
-					float dx = Random::FRandom(-1, 1);
-					float dy = Random::FRandom(-1, 1);
-					auto direction = camera.Direction + camera_x * ((dx + x) / width - 0.5f) + camera_y * ((dy + y) / height - 0.5f);
-					radiance = radiance + Radiance(Ray(camera.Position /*+ direction * 10.0f*/, glm::normalize(direction)), 1) * (1.0f / m_Description.SamplesPerPixel);
-				}
-				bitmap[i] = bitmap[i] + glm::clamp(radiance, 0.0f, 1.0f) * (1.0f / m_Description.SubPixels);
+				//Procedure function
+				auto proc = [&] {
+					radiance = { 0.0f,0.0f,0.0f };
+					for (uint32_t sample = 0; sample < m_Description.SamplesPerPixel; sample++)
+					{
+						float dx = Random::FRandom(-1, 1);
+						float dy = Random::FRandom(-1, 1);
+						auto direction = camera.Direction + camera_x * ((dx + x) / width - 0.5f) + camera_y * ((dy + y) / height - 0.5f);
+						radiance = radiance + Radiance(Ray(focusPoint, direction), 1) * (1.0f / m_Description.SamplesPerPixel);
+					}
+					bitmap[i] = bitmap[i] + glm::clamp(radiance, 0.0f, 1.0f) * (1.0f / m_Description.SubPixels);
+				};
+				std::thread worker = std::thread(proc);
+				worker.join();
 			}
 		}
 	}

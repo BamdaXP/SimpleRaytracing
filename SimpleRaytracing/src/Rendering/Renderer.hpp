@@ -7,6 +7,8 @@
 #include "Camera.hpp"
 #include "Geometry/Ray.hpp"
 
+#define PI 3.1415926535897f
+
 struct RendererDescription
 {
 public:
@@ -24,12 +26,12 @@ public:
 class Renderer 
 {
 public:
-	Renderer(RendererDescription desc):m_Description(desc){}
+	Renderer(const RendererDescription& desc):m_Description(desc){}
 public:
 	void Render(const Camera& camera, const std::vector<Object>& scene);
 
 	inline const RendererDescription GetDescription() { return m_Description; }
-
+	inline void SetRendererDescription(const RendererDescription& desc) { m_Description = desc; }
 private:
 	std::vector<Object> m_SceneBuffer;
 
