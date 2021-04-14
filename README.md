@@ -1,10 +1,13 @@
 # Simple Raytracing Renderer
 
 ## Result
+64 spp 4 depth 4 subpixels
 ![](./img/1.png)
-
+64 spp 4 depth 8 subpixels
+![](./img/2.png)
 ## Features
   -	Raytracing based global illumination.
+  - Multithread accelerating.
   - Customable geometry class interface.Sphere and plane are precluded.
   - Configurable material class and customable ray reflection or transmission behaviours, supporting multiple weighted rays combination. Ideal diffusal, reflectal and refractal materials are precluded.
 

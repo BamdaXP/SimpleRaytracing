@@ -1,11 +1,10 @@
 #include "Renderer.hpp"
-
+#include "ThreadPool.hpp"
 #include "Random.hpp"
 
 #include <iostream>
 #include <fstream>
-#include <thread> 
-#include <atomic>
+
 void Renderer::Render(const Camera& camera, const std::vector<Object>& scene)
 {
 	//Copy the scene into the renderer
@@ -21,27 +20,54 @@ void Renderer::Render(const Camera& camera, const std::vector<Object>& scene)
 	glm::vec3 camera_y = glm::normalize(glm::cross(camera_x, camera.Direction)) * camera.HWRatio;
 	glm::vec3 focusPoint = camera.Position - camera.Direction * glm::length(camera_x / glm::tan(camera.FovInRad));
 
-	glm::vec3 radiance;
-
 	std::cout << "Rendering" << std::endl
 		<< scene.size() << "object(s) are(is) in the scene." << std::endl
 		<< "Image size:" << width << "x" << height << std::endl;
 
 	//bitmap result
-	auto bitmap = std::vector<glm::vec3>(width * height);
+
+	auto bitmap = std::vector<glm::vec3>(((uint32_t)width) * height);
 	memset(bitmap.data(), 0, bitmap.size() * sizeof(glm::vec3));//clear bitmap
+
+
+
+	ThreadPool::Start();
+
+
+	//Logging
+	uint32_t total = ((uint32_t)width) * height;
+	float submitted = 0;//sync
+	float finished = 0;//async
+	std::mutex finishCountMutex;
+	ThreadPool::SubmitTask([&]() {
+		float lastSubmittedPercent = 0.0f;
+		float lastFinishedPercent = 0.0f;
+		//Block
+		while (finished < total)
+		{
+			float currentSubmittedPercent = submitted / total;
+			float currentFinishedPercent = finished / total;
+			if ((int)(currentFinishedPercent * 100) > (int)(lastFinishedPercent * 100) || (int)(currentSubmittedPercent * 100) > (int)(lastSubmittedPercent * 100)) {
+				std::cout << "\r";
+				std::cout << "Submitted " << (int)(currentSubmittedPercent * 100) << "%\t" << "Finished " << (int)(currentFinishedPercent * 100) << "%";
+			}
+			lastSubmittedPercent = currentSubmittedPercent;
+			lastFinishedPercent = currentFinishedPercent;
+		}
+		});
+
+
 	//Render procedure
 	for (uint16_t x = 0; x < width; x++)
 	{
-		std::cout << "Finished " << (int)((float)x / width * 100) << "%" << std::endl;
 		for (uint16_t y = 0; y < height; y++)
 		{
-			int i = (height - y - 1) * width + x;
-			for (uint16_t subpixel = 0; subpixel < m_Description.SubPixels; subpixel++)
-			{
-				//Procedure function
-				auto proc = [&] {
-					radiance = { 0.0f,0.0f,0.0f };
+			//Procedure function
+			auto proc = [&,x,y] {
+				int i = (height - y - 1) * width + x;
+				for (uint16_t subpixel = 0; subpixel < m_Description.SubPixels; subpixel++)
+				{
+					glm::vec3 radiance = { 0.0f,0.0f,0.0f };
 					for (uint32_t sample = 0; sample < m_Description.SamplesPerPixel; sample++)
 					{
 						float dx = Random::FRandom(-1, 1);
@@ -50,17 +76,26 @@ void Renderer::Render(const Camera& camera, const std::vector<Object>& scene)
 						radiance = radiance + Radiance(Ray(focusPoint, direction), 1) * (1.0f / m_Description.SamplesPerPixel);
 					}
 					bitmap[i] = bitmap[i] + glm::clamp(radiance, 0.0f, 1.0f) * (1.0f / m_Description.SubPixels);
-				};
-				std::thread worker = std::thread(proc);
-				worker.join();
-			}
+				}
+				std::unique_lock<std::mutex> lock(finishCountMutex);
+				finished++;
+				lock.unlock();
+			};
+			ThreadPool::SubmitTask(proc);
+			submitted++;
 		}
 	}
 
+
+	ThreadPool::WaitUntilNoTask();
+	ThreadPool::Stop();
+
+
 	//Save to file
+	std::cout << std::endl <<"Saving to " << m_Description.SavePathFileName << std::endl;
 	std::ofstream filestream(m_Description.SavePathFileName, std::ios::trunc);
 	filestream << "P3" << std::endl << width << " " << height << std::endl << "255" << std::endl;
-	for (size_t i = 0; i < width * height; i++)
+	for (size_t i = 0; i < ((uint32_t)width) * height; i++)
 	{
 		filestream << (int)(bitmap[i].r * 255) << " " << (int)(bitmap[i].g * 255) << " " << (int)(bitmap[i].b * 255) << " ";
 	}

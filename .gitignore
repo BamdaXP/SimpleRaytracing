@@ -2,6 +2,8 @@
 /.vs
 /.vscode
 *.sln
-
+**/*.vcxproj
+**/*.vcxproj.filters
+**/*.user
 #Output binaries and intermediums
 /out
